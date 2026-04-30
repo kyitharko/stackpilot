@@ -1,0 +1,22 @@
+name: backend
+
+services:
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - "backend-mongodb-data:/data/db"
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+
+  api:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    depends_on:
+      - mongodb
+      - redis
