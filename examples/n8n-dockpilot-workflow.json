@@ -100,18 +100,10 @@
         "name": "deploy_service",
         "description": "Deploy a Docker container via dockpilot.\n\nservice_name: required. The container name (e.g. 'mongodb', 'redis', 'my-api').\nbody: required. JSON string for the request body.\n  - For built-in services (mongodb/redis/postgres/nginx): use '{}'\n  - For custom services: '{\"image\":\"repo/name:tag\",\"ports\":[\"8080:80\"],\"volumes\":[\"volname:/mountpath\"],\"env\":[\"KEY=value\"]}'\n  Only include the fields you need; all are optional except image for non-built-ins.",
         "method": "POST",
-        "url": "http://host.docker.internal:8088/v1/services/{{ service_name }}/deploy",
+        "url": "={{ 'http://host.docker.internal:8088/v1/services/' + $fromAI('service_name', 'Service name to deploy, e.g. mongodb, redis, my-api') + '/deploy' }}",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ $fromAI('body', 'JSON body for deploy request. Use {} for built-ins. For custom: {\"image\":\"img:tag\",\"ports\":[\"8080:80\"]}') }}",
-        "placeholderDefinitions": {
-          "values": [
-            {
-              "name": "service_name",
-              "description": "Name for the service to deploy (e.g. mongodb, my-api)"
-            }
-          ]
-        },
+        "jsonBody": "={{ $fromAI('body', 'JSON body. Use {} for built-ins (mongodb/redis/postgres/nginx). For custom services: {\"image\":\"repo/img:tag\",\"ports\":[\"8080:80\"],\"volumes\":[\"vol:/path\"],\"env\":[\"K=V\"]}') }}",
         "options": {}
       }
     },
@@ -125,15 +117,7 @@
         "name": "service_status",
         "description": "Get the runtime status of a deployed container: whether it is running, its image, port bindings, and current state. Call this after every deploy to confirm success.",
         "method": "GET",
-        "url": "http://host.docker.internal:8088/v1/services/{{ service_name }}/status",
-        "placeholderDefinitions": {
-          "values": [
-            {
-              "name": "service_name",
-              "description": "The service name to check (e.g. mongodb, my-api)"
-            }
-          ]
-        },
+        "url": "={{ 'http://host.docker.internal:8088/v1/services/' + $fromAI('service_name', 'The service name to check status for, e.g. mongodb') + '/status' }}",
         "options": {}
       }
     },
@@ -147,19 +131,7 @@
         "name": "service_logs",
         "description": "Fetch recent stdout/stderr logs from a running container. Use for troubleshooting startup failures or errors.",
         "method": "GET",
-        "url": "http://host.docker.internal:8088/v1/services/{{ service_name }}/logs?tail={{ tail }}",
-        "placeholderDefinitions": {
-          "values": [
-            {
-              "name": "service_name",
-              "description": "The service name to fetch logs from"
-            },
-            {
-              "name": "tail",
-              "description": "Number of log lines to return. Default: 50"
-            }
-          ]
-        },
+        "url": "={{ 'http://host.docker.internal:8088/v1/services/' + $fromAI('service_name', 'The service name to fetch logs from') + '/logs?tail=' + $fromAI('tail', 'Number of log lines to return, default 50') }}",
         "options": {}
       }
     },
@@ -173,19 +145,7 @@
         "name": "remove_service",
         "description": "Stop and remove a deployed container. Optionally delete its named volumes (WARNING: permanently destroys data). Only delete volumes when the user explicitly confirms.",
         "method": "DELETE",
-        "url": "http://host.docker.internal:8088/v1/services/{{ service_name }}?volumes={{ volumes }}",
-        "placeholderDefinitions": {
-          "values": [
-            {
-              "name": "service_name",
-              "description": "The service name to remove (e.g. mongodb)"
-            },
-            {
-              "name": "volumes",
-              "description": "Comma-separated named volumes to also delete (e.g. 'dockpilot-mongodb-data,dockpilot-redis-data'), or leave empty to preserve data"
-            }
-          ]
-        },
+        "url": "={{ 'http://host.docker.internal:8088/v1/services/' + $fromAI('service_name', 'The service name to remove, e.g. mongodb') + '?volumes=' + ($fromAI('volumes', 'Comma-separated named volume names to also delete, e.g. dockpilot-mongodb-data — or empty string to preserve data') || '') }}",
         "options": {}
       }
     },
