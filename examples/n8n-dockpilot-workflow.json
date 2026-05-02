@@ -72,7 +72,7 @@
         "name": "health_check",
         "description": "Verify that dockpilot is running and can reach the Docker daemon. Call this if the user reports issues or to confirm everything is up before starting work.",
         "method": "GET",
-        "url": "http://host.docker.internal:8088/health",
+        "url": "http://172.21.133.50:8088/health",
         "options": {}
       }
     },
@@ -86,7 +86,7 @@
         "name": "list_builtin_services",
         "description": "List all pre-configured service definitions in dockpilot (mongodb, redis, postgres, nginx). Returns each service's name, image, default ports, and volumes. Use this when the user asks what services are available or supported.",
         "method": "GET",
-        "url": "http://host.docker.internal:8088/v1/services",
+        "url": "http://172.21.133.50:8088/v1/services",
         "options": {}
       }
     },
@@ -100,7 +100,7 @@
         "name": "deploy_service",
         "description": "Deploy a Docker container via dockpilot.\n\nservice_name: required. The container name (e.g. 'mongodb', 'redis', 'my-api').\nbody: required. JSON string for the request body.\n  - For built-in services (mongodb/redis/postgres/nginx): use '{}'\n  - For custom services: '{\"image\":\"repo/name:tag\",\"ports\":[\"8080:80\"],\"volumes\":[\"volname:/mountpath\"],\"env\":[\"KEY=value\"]}'\n  Only include the fields you need; all are optional except image for non-built-ins.",
         "method": "POST",
-        "url": "={{ 'http://host.docker.internal:8088/v1/services/' + $fromAI('service_name', 'Service name to deploy, e.g. mongodb, redis, my-api') + '/deploy' }}",
+        "url": "={{ 'http://172.21.133.50:8088/v1/services/' + $fromAI('service_name', 'Service name to deploy, e.g. mongodb, redis, my-api') + '/deploy' }}",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ $fromAI('body', 'JSON body. Use {} for built-ins (mongodb/redis/postgres/nginx). For custom services: {\"image\":\"repo/img:tag\",\"ports\":[\"8080:80\"],\"volumes\":[\"vol:/path\"],\"env\":[\"K=V\"]}') }}",
@@ -117,7 +117,7 @@
         "name": "service_status",
         "description": "Get the runtime status of a deployed container: whether it is running, its image, port bindings, and current state. Call this after every deploy to confirm success.",
         "method": "GET",
-        "url": "={{ 'http://host.docker.internal:8088/v1/services/' + $fromAI('service_name', 'The service name to check status for, e.g. mongodb') + '/status' }}",
+        "url": "={{ 'http://172.21.133.50:8088/v1/services/' + $fromAI('service_name', 'The service name to check status for, e.g. mongodb') + '/status' }}",
         "options": {}
       }
     },
@@ -131,7 +131,7 @@
         "name": "service_logs",
         "description": "Fetch recent stdout/stderr logs from a running container. Use for troubleshooting startup failures or errors.",
         "method": "GET",
-        "url": "={{ 'http://host.docker.internal:8088/v1/services/' + $fromAI('service_name', 'The service name to fetch logs from') + '/logs?tail=' + $fromAI('tail', 'Number of log lines to return, default 50') }}",
+        "url": "={{ 'http://172.21.133.50:8088/v1/services/' + $fromAI('service_name', 'The service name to fetch logs from') + '/logs?tail=' + $fromAI('tail', 'Number of log lines to return, default 50') }}",
         "options": {}
       }
     },
@@ -145,7 +145,7 @@
         "name": "remove_service",
         "description": "Stop and remove a deployed container. Optionally delete its named volumes (WARNING: permanently destroys data). Only delete volumes when the user explicitly confirms.",
         "method": "DELETE",
-        "url": "={{ 'http://host.docker.internal:8088/v1/services/' + $fromAI('service_name', 'The service name to remove, e.g. mongodb') + '?volumes=' + ($fromAI('volumes', 'Comma-separated named volume names to also delete, e.g. dockpilot-mongodb-data — or empty string to preserve data') || '') }}",
+        "url": "={{ 'http://172.21.133.50:8088/v1/services/' + $fromAI('service_name', 'The service name to remove, e.g. mongodb') + '?volumes=' + ($fromAI('volumes', 'Comma-separated named volume names to also delete, e.g. dockpilot-mongodb-data — or empty string to preserve data') || '') }}",
         "options": {}
       }
     },
@@ -156,7 +156,7 @@
       "typeVersion": 1,
       "position": [560, -240],
       "parameters": {
-        "content": "## Active model: Ollama (local, free, no API key)\n\nOllama runs inside Docker — no quota, no billing.\n\n**Setup (one time):**\n```\n# Deploy Ollama\nstackpilot stack deploy examples/platform.yaml\n\n# Pull the model (~2 GB)\ndocker exec dockpilot-platform-ollama ollama pull llama3.2:3b\n```\n\n**Credential (no API key needed):**\nCredentials → Add → Ollama\nBase URL: `http://host.docker.internal:11434`\n\n---\n\n## Swap to a cloud model\n1. Delete the wire from **Ollama (Active)** → DevOps Assistant\n2. Connect **Gemini (Swap in)** → DevOps Assistant\n3. Add Gemini credentials (Google AI Studio API key)\n\n---\n\n## dockpilot URL\nAll tools point to `host.docker.internal:8088`.\nStart dockpilot with:\n```\n./dockpilot server --host 0.0.0.0\n```",
+        "content": "## Active model: Ollama (local, free, no API key)\n\nOllama runs inside Docker — no quota, no billing.\n\n**Setup (one time):**\n```\n# Deploy Ollama\nstackpilot stack deploy examples/platform.yaml\n\n# Pull the model (~2 GB)\ndocker exec dockpilot-platform-ollama ollama pull llama3.2:3b\n```\n\n**Credential (no API key needed):**\nCredentials → Add → Ollama\nBase URL: `http://host.docker.internal:11434`\n\n---\n\n## Swap to a cloud model\n1. Delete the wire from **Ollama (Active)** → DevOps Assistant\n2. Connect **Gemini (Swap in)** → DevOps Assistant\n3. Add Gemini credentials (Google AI Studio API key)\n\n---\n\n## dockpilot URL\nAll tools point to `172.21.133.50:8088` (WSL2 IP).\nStart dockpilot with:\n```\n./dockpilot server --host 0.0.0.0\n```\n\n> **If your WSL2 IP changes** (after restart), find the new IP with:\n> `ip addr show eth0 | grep 'inet '`\n> Then update the URL in each tool node.",
         "height": 380,
         "width": 380,
         "color": 4
