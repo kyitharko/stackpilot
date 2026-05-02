@@ -1,0 +1,29 @@
+name: platform
+
+# Deploy with: stackpilot stack deploy examples/platform.yaml
+#
+# Prerequisites:
+#   dockpilot server must be started with --host 0.0.0.0 so the n8n container
+#   can reach it via host.docker.internal:
+#
+#     ./dockpilot server --host 0.0.0.0 --port 8088
+#
+# After deploy, open http://localhost:5678 to access n8n.
+# Import examples/n8n-dockpilot-workflow.json to get the chat assistant.
+
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    ports:
+      - "5678:5678"
+    volumes:
+      - "platform-n8n-data:/home/node/.n8n"
+    environment:
+      # Required: prevents n8n from rejecting cookies over plain HTTP in dev.
+      N8N_SECURE_COOKIE: "false"
+      # Set these to the URL where n8n is reachable (used for webhook URLs).
+      WEBHOOK_URL: "http://localhost:5678"
+      N8N_EDITOR_BASE_URL: "http://localhost:5678"
+      GENERIC_TIMEZONE: "UTC"
+      # Optional: set a fixed encryption key so credentials survive container restarts.
+      # N8N_ENCRYPTION_KEY: "change-me-32-chars-minimum-here"

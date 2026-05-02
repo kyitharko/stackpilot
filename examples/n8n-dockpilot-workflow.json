@@ -1,0 +1,255 @@
+{
+  "name": "DockPilot DevOps Assistant",
+  "nodes": [
+    {
+      "id": "a1b2c3d4-0001-0000-0000-000000000001",
+      "name": "Chat",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [0, 300],
+      "webhookId": "dockpilot-assistant",
+      "parameters": {
+        "options": {}
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0000-0000-000000000002",
+      "name": "DevOps Assistant",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [280, 300],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput }}",
+        "hasOutputParser": false,
+        "options": {
+          "systemMessage": "You are a DevOps assistant that deploys and manages Docker containers through the dockpilot API.\n\nBuilt-in services (deploy by name only — no image needed):\n- mongodb  → mongo:latest, port 27017\n- redis    → redis:latest, port 6379\n- postgres → postgres:latest, port 5432  (user: admin / pass: admin123 / db: appdb)\n- nginx    → nginx:latest, port 8080→80\n\nFor any other service, ask for the Docker image if the user has not provided one.\n\nWorkflow:\n1. When a developer asks to deploy a service, call deploy_service.\n2. After deploying, call service_status to confirm it is running and show the port.\n3. If deploy fails with \"already exists\", report the current status and ask whether to redeploy (remove then deploy).\n4. When removing a service, always ask before also deleting its volumes (data loss is permanent).\n5. If asked to \"set up\" multiple services (e.g. a full stack), deploy them one by one in a sensible order (databases first, then apps).\n6. Keep responses concise — show the port and state, skip verbose explanations.",
+          "maxIterations": 15
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0000-0000-000000000003",
+      "name": "Gemini (Active — free)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [600, 60],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "",
+          "name": "Google Gemini account"
+        }
+      },
+      "parameters": {
+        "modelName": "models/gemini-2.0-flash",
+        "options": {}
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0000-0000-000000000004",
+      "name": "Claude (Swap in)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [600, 200],
+      "credentials": {
+        "anthropicApi": {
+          "id": "",
+          "name": "Anthropic account"
+        }
+      },
+      "parameters": {
+        "model": "claude-sonnet-4-6",
+        "options": {}
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0000-0000-000000000005",
+      "name": "health_check",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [600, 360],
+      "parameters": {
+        "name": "health_check",
+        "description": "Verify that dockpilot is running and can reach the Docker daemon. Call this if the user reports issues or to confirm everything is up before starting work.",
+        "method": "GET",
+        "url": "http://host.docker.internal:8088/health",
+        "options": {}
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0000-0000-000000000006",
+      "name": "list_builtin_services",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [600, 500],
+      "parameters": {
+        "name": "list_builtin_services",
+        "description": "List all pre-configured service definitions in dockpilot (mongodb, redis, postgres, nginx). Returns each service's name, image, default ports, and volumes. Use this when the user asks what services are available or supported.",
+        "method": "GET",
+        "url": "http://host.docker.internal:8088/v1/services",
+        "options": {}
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0000-0000-000000000007",
+      "name": "deploy_service",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [600, 640],
+      "parameters": {
+        "name": "deploy_service",
+        "description": "Deploy a Docker container via dockpilot.\n\nservice_name: required. The container name (e.g. 'mongodb', 'redis', 'my-api').\nbody: required. JSON string for the request body.\n  - For built-in services (mongodb/redis/postgres/nginx): use '{}'\n  - For custom services: '{\"image\":\"repo/name:tag\",\"ports\":[\"8080:80\"],\"volumes\":[\"volname:/mountpath\"],\"env\":[\"KEY=value\"]}'\n  Only include the fields you need; all are optional except image for non-built-ins.",
+        "method": "POST",
+        "url": "http://host.docker.internal:8088/v1/services/{{ service_name }}/deploy",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $fromAI('body', 'JSON body for deploy request. Use {} for built-ins. For custom: {\"image\":\"img:tag\",\"ports\":[\"8080:80\"]}') }}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "service_name",
+              "description": "Name for the service to deploy (e.g. mongodb, my-api)"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0000-0000-000000000008",
+      "name": "service_status",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [600, 780],
+      "parameters": {
+        "name": "service_status",
+        "description": "Get the runtime status of a deployed container: whether it is running, its image, port bindings, and current state. Call this after every deploy to confirm success.",
+        "method": "GET",
+        "url": "http://host.docker.internal:8088/v1/services/{{ service_name }}/status",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "service_name",
+              "description": "The service name to check (e.g. mongodb, my-api)"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0000-0000-000000000009",
+      "name": "service_logs",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [600, 920],
+      "parameters": {
+        "name": "service_logs",
+        "description": "Fetch recent stdout/stderr logs from a running container. Use for troubleshooting startup failures or errors.",
+        "method": "GET",
+        "url": "http://host.docker.internal:8088/v1/services/{{ service_name }}/logs?tail={{ tail }}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "service_name",
+              "description": "The service name to fetch logs from"
+            },
+            {
+              "name": "tail",
+              "description": "Number of log lines to return. Default: 50"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0000-0000-000000000010",
+      "name": "remove_service",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [600, 1060],
+      "parameters": {
+        "name": "remove_service",
+        "description": "Stop and remove a deployed container. Optionally delete its named volumes (WARNING: permanently destroys data). Only delete volumes when the user explicitly confirms.",
+        "method": "DELETE",
+        "url": "http://host.docker.internal:8088/v1/services/{{ service_name }}?volumes={{ volumes }}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "service_name",
+              "description": "The service name to remove (e.g. mongodb)"
+            },
+            {
+              "name": "volumes",
+              "description": "Comma-separated named volumes to also delete (e.g. 'dockpilot-mongodb-data,dockpilot-redis-data'), or leave empty to preserve data"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0000-0000-000000000011",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [560, -240],
+      "parameters": {
+        "content": "## Get a free Gemini API key\n1. Go to https://aistudio.google.com\n2. Click **Get API key** → **Create API key**\n3. Copy the key (no credit card needed)\n4. In n8n: double-click **Gemini (Active)** → **Credentials** → **Create New** → paste key\n\n---\n\n## Model Switching\n\n**Active:** Gemini `gemini-2.0-flash` (free)\n\n**To switch to Claude or OpenAI:**\n1. Delete the wire from **Gemini (Active)** → DevOps Assistant\n2. Drag a new wire from **Claude (Swap in)** → DevOps Assistant\n\nOther free models to try in the Gemini node:\n- `models/gemini-1.5-flash`\n- `models/gemini-2.0-flash`\n\n---\n\n## dockpilot URL\nAll tools point to `host.docker.internal:8088`.\nStart dockpilot with:\n```\n./dockpilot server --host 0.0.0.0\n```",
+        "height": 380,
+        "width": 380,
+        "color": 4
+      }
+    }
+  ],
+  "connections": {
+    "Chat": {
+      "main": [
+        [{"node": "DevOps Assistant", "type": "main", "index": 0}]
+      ]
+    },
+    "Gemini (Active — free)": {
+      "ai_languageModel": [
+        [{"node": "DevOps Assistant", "type": "ai_languageModel", "index": 0}]
+      ]
+    },
+    "health_check": {
+      "ai_tool": [
+        [{"node": "DevOps Assistant", "type": "ai_tool", "index": 0}]
+      ]
+    },
+    "list_builtin_services": {
+      "ai_tool": [
+        [{"node": "DevOps Assistant", "type": "ai_tool", "index": 0}]
+      ]
+    },
+    "deploy_service": {
+      "ai_tool": [
+        [{"node": "DevOps Assistant", "type": "ai_tool", "index": 0}]
+      ]
+    },
+    "service_status": {
+      "ai_tool": [
+        [{"node": "DevOps Assistant", "type": "ai_tool", "index": 0}]
+      ]
+    },
+    "service_logs": {
+      "ai_tool": [
+        [{"node": "DevOps Assistant", "type": "ai_tool", "index": 0}]
+      ]
+    },
+    "remove_service": {
+      "ai_tool": [
+        [{"node": "DevOps Assistant", "type": "ai_tool", "index": 0}]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "instanceId": ""
+  }
+}
