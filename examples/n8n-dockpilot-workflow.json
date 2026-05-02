@@ -34,9 +34,14 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
       "typeVersion": 1,
       "position": [600, 60],
+      "credentials": {
+        "ollamaApi": {
+          "id": "",
+          "name": "Ollama account"
+        }
+      },
       "parameters": {
         "model": "llama3.2:3b",
-        "baseUrl": "http://host.docker.internal:11434",
         "options": {}
       }
     },
@@ -151,7 +156,7 @@
       "typeVersion": 1,
       "position": [560, -240],
       "parameters": {
-        "content": "## Active model: Ollama (local, free, no API key)\n\nOllama runs inside Docker — no quota, no billing.\n\n**Setup (one time):**\n```\n# Deploy Ollama\nstackpilot stack deploy examples/platform.yaml\n\n# Pull the model (~2 GB)\ndocker exec dockpilot-platform-ollama ollama pull llama3.2:3b\n```\n\n---\n\n## Swap to a cloud model\n1. Delete the wire from **Ollama (Active)** → DevOps Assistant\n2. Connect **Gemini (Swap in)** → DevOps Assistant\n3. Add Gemini credentials (Google AI Studio API key)\n\n---\n\n## dockpilot URL\nAll tools point to `host.docker.internal:8088`.\nStart dockpilot with:\n```\n./dockpilot server --host 0.0.0.0\n```",
+        "content": "## Active model: Ollama (local, free, no API key)\n\nOllama runs inside Docker — no quota, no billing.\n\n**Setup (one time):**\n```\n# Deploy Ollama\nstackpilot stack deploy examples/platform.yaml\n\n# Pull the model (~2 GB)\ndocker exec dockpilot-platform-ollama ollama pull llama3.2:3b\n```\n\n**Credential (no API key needed):**\nCredentials → Add → Ollama\nBase URL: `http://host.docker.internal:11434`\n\n---\n\n## Swap to a cloud model\n1. Delete the wire from **Ollama (Active)** → DevOps Assistant\n2. Connect **Gemini (Swap in)** → DevOps Assistant\n3. Add Gemini credentials (Google AI Studio API key)\n\n---\n\n## dockpilot URL\nAll tools point to `host.docker.internal:8088`.\nStart dockpilot with:\n```\n./dockpilot server --host 0.0.0.0\n```",
         "height": 380,
         "width": 380,
         "color": 4
