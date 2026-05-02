@@ -41,7 +41,7 @@
         }
       },
       "parameters": {
-        "modelName": "gemini-2.0-flash",
+        "modelName": "gemini-1.5-flash",
         "options": {}
       }
     },
@@ -156,7 +156,7 @@
       "typeVersion": 1,
       "position": [560, -240],
       "parameters": {
-        "content": "## Get a free Gemini API key\n1. Go to https://aistudio.google.com\n2. Click **Get API key** → **Create API key**\n3. Copy the key (no credit card needed)\n4. In n8n: double-click **Gemini (Active)** → **Credentials** → **Create New** → paste key\n\n---\n\n## Model Switching\n\n**Active:** Gemini `gemini-2.0-flash` (free)\n\n**To switch to Claude or OpenAI:**\n1. Delete the wire from **Gemini (Active)** → DevOps Assistant\n2. Drag a new wire from **Claude (Swap in)** → DevOps Assistant\n\nOther free models to try in the Gemini node:\n- `models/gemini-1.5-flash`\n- `models/gemini-2.0-flash`\n\n---\n\n## dockpilot URL\nAll tools point to `host.docker.internal:8088`.\nStart dockpilot with:\n```\n./dockpilot server --host 0.0.0.0\n```",
+        "content": "## Get a free Gemini API key\n1. Go to https://aistudio.google.com\n2. Click **Get API key** → **Create API key**\n3. Copy the key (no credit card needed)\n4. In n8n: double-click **Gemini (Active)** → **Credentials** → **Create New** → paste key\n\n---\n\n## Model Switching\n\n**Active:** Gemini `gemini-1.5-flash` (free)\n\n**To switch to Claude or OpenAI:**\n1. Delete the wire from **Gemini (Active)** → DevOps Assistant\n2. Drag a new wire from **Claude (Swap in)** → DevOps Assistant\n\nOther free models to try in the Gemini node:\n- `gemini-1.5-flash` ✓ free tier\n- `gemini-1.5-pro` (limited free)\n- `gemini-2.0-flash` (free tier quota may be 0 in some regions)\n\n---\n\n## dockpilot URL\nAll tools point to `host.docker.internal:8088`.\nStart dockpilot with:\n```\n./dockpilot server --host 0.0.0.0\n```",
         "height": 380,
         "width": 380,
         "color": 4
