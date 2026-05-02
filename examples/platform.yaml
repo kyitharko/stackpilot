@@ -12,6 +12,13 @@ name: platform
 # Import examples/n8n-dockpilot-workflow.json to get the chat assistant.
 
 services:
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - "platform-ollama-data:/root/.ollama"
+
   n8n:
     image: n8nio/n8n:latest
     ports:

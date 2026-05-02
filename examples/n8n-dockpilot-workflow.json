@@ -30,10 +30,22 @@
     },
     {
       "id": "a1b2c3d4-0001-0000-0000-000000000003",
-      "name": "Gemini (Active — free)",
-      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "name": "Ollama (Active — local)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
       "typeVersion": 1,
       "position": [600, 60],
+      "parameters": {
+        "model": "llama3.2:3b",
+        "baseUrl": "http://host.docker.internal:11434",
+        "options": {}
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0000-0000-000000000004",
+      "name": "Gemini (Swap in)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [600, 200],
       "credentials": {
         "googlePalmApi": {
           "id": "",
@@ -42,23 +54,6 @@
       },
       "parameters": {
         "modelName": "gemini-1.5-flash",
-        "options": {}
-      }
-    },
-    {
-      "id": "a1b2c3d4-0001-0000-0000-000000000004",
-      "name": "Claude (Swap in)",
-      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
-      "typeVersion": 1.3,
-      "position": [600, 200],
-      "credentials": {
-        "anthropicApi": {
-          "id": "",
-          "name": "Anthropic account"
-        }
-      },
-      "parameters": {
-        "model": "claude-sonnet-4-6",
         "options": {}
       }
     },
@@ -156,7 +151,7 @@
       "typeVersion": 1,
       "position": [560, -240],
       "parameters": {
-        "content": "## Get a free Gemini API key\n1. Go to https://aistudio.google.com\n2. Click **Get API key** → **Create API key**\n3. Copy the key (no credit card needed)\n4. In n8n: double-click **Gemini (Active)** → **Credentials** → **Create New** → paste key\n\n---\n\n## Model Switching\n\n**Active:** Gemini `gemini-1.5-flash` (free)\n\n**To switch to Claude or OpenAI:**\n1. Delete the wire from **Gemini (Active)** → DevOps Assistant\n2. Drag a new wire from **Claude (Swap in)** → DevOps Assistant\n\nOther free models to try in the Gemini node:\n- `gemini-1.5-flash` ✓ free tier\n- `gemini-1.5-pro` (limited free)\n- `gemini-2.0-flash` (free tier quota may be 0 in some regions)\n\n---\n\n## dockpilot URL\nAll tools point to `host.docker.internal:8088`.\nStart dockpilot with:\n```\n./dockpilot server --host 0.0.0.0\n```",
+        "content": "## Active model: Ollama (local, free, no API key)\n\nOllama runs inside Docker — no quota, no billing.\n\n**Setup (one time):**\n```\n# Deploy Ollama\nstackpilot stack deploy examples/platform.yaml\n\n# Pull the model (~2 GB)\ndocker exec dockpilot-platform-ollama ollama pull llama3.2:3b\n```\n\n---\n\n## Swap to a cloud model\n1. Delete the wire from **Ollama (Active)** → DevOps Assistant\n2. Connect **Gemini (Swap in)** → DevOps Assistant\n3. Add Gemini credentials (Google AI Studio API key)\n\n---\n\n## dockpilot URL\nAll tools point to `host.docker.internal:8088`.\nStart dockpilot with:\n```\n./dockpilot server --host 0.0.0.0\n```",
         "height": 380,
         "width": 380,
         "color": 4
@@ -169,7 +164,7 @@
         [{"node": "DevOps Assistant", "type": "main", "index": 0}]
       ]
     },
-    "Gemini (Active — free)": {
+    "Ollama (Active — local)": {
       "ai_languageModel": [
         [{"node": "DevOps Assistant", "type": "ai_languageModel", "index": 0}]
       ]
