@@ -23,7 +23,7 @@
         "text": "={{ $json.chatInput }}",
         "hasOutputParser": false,
         "options": {
-          "systemMessage": "You are a DevOps assistant that deploys and manages Docker containers through the dockpilot API.\n\nBuilt-in services (deploy by name only — no image needed):\n- mongodb  → mongo:latest, port 27017\n- redis    → redis:latest, port 6379\n- postgres → postgres:latest, port 5432  (user: admin / pass: admin123 / db: appdb)\n- nginx    → nginx:latest, port 8080→80\n\nFor any other service, ask for the Docker image if the user has not provided one.\n\nWorkflow:\n1. When a developer asks to deploy a service, call deploy_service.\n2. After deploying, call service_status to confirm it is running and show the port.\n3. If deploy fails with \"already exists\", report the current status and ask whether to redeploy (remove then deploy).\n4. When removing a service, always ask before also deleting its volumes (data loss is permanent).\n5. If asked to \"set up\" multiple services (e.g. a full stack), deploy them one by one in a sensible order (databases first, then apps).\n6. Keep responses concise — show the port and state, skip verbose explanations.",
+          "systemMessage": "You are a DevOps assistant that deploys and manages Docker containers.\n\nArchitecture: n8n → stackpilot → dockpilot → Docker\n\nDEPLOYING:\n- Always use deploy_stack. Generate a YAML stack definition and call it.\n- Use stack name \"dev\" for general dev services, or a descriptive name for a full app stack.\n- Place databases in depends_on before the apps that need them.\n- After deploying stack \"dev\" with service \"redis\", check status using service_name \"dev-redis\".\n\nYAML format:\n```\nname: <stack-name>\nservices:\n  <service-key>:\n    image: <docker-image>\n    ports:\n      - \"host:container\"\n    volumes:\n      - \"volname:/path\"\n    env:\n      - KEY=VALUE\n    depends_on:\n      - other-service-key\n```\n\nKnown service defaults (use these when generating YAML):\n- mongodb  → image: mongo:latest, ports: [\"27017:27017\"], volumes: [\"dev-mongodb-data:/data/db\"]\n- redis    → image: redis:latest, ports: [\"6379:6379\"]\n- postgres → image: postgres:latest, ports: [\"5432:5432\"], env: [POSTGRES_USER=admin, POSTGRES_PASSWORD=admin123, POSTGRES_DB=appdb], volumes: [\"dev-postgres-data:/var/lib/postgresql/data\"]\n- nginx    → image: nginx:latest, ports: [\"8080:80\"]\n\nFor any other service, ask for the Docker image if not provided.\n\nWORKFLOW:\n1. Deploy → call deploy_stack with the YAML. The response includes per-service state and ports.\n2. If deploy fails with \"already exists\", report the current status and ask whether to redeploy.\n3. Remove a single service → call remove_service with \"{stack_name}-{service_key}\" (e.g. \"dev-redis\").\n4. Remove a whole stack → call remove_stack with the same YAML used to deploy.\n5. Always ask before deleting volumes — data loss is permanent.\n6. Keep responses concise — show port and state, skip verbose explanations.",
           "maxIterations": 15
         }
       }
@@ -70,9 +70,9 @@
       "position": [600, 360],
       "parameters": {
         "name": "health_check",
-        "description": "Verify that dockpilot is running and can reach the Docker daemon. Call this if the user reports issues or to confirm everything is up before starting work.",
+        "description": "Verify that stackpilot and dockpilot are running. Call this if the user reports issues or to confirm everything is up before starting work.",
         "method": "GET",
-        "url": "http://dockpilot:8088/health",
+        "url": "http://stackpilot:8089/health",
         "options": {}
       }
     },
@@ -92,18 +92,18 @@
     },
     {
       "id": "a1b2c3d4-0001-0000-0000-000000000007",
-      "name": "deploy_service",
+      "name": "deploy_stack",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
       "position": [600, 640],
       "parameters": {
-        "name": "deploy_service",
-        "description": "Deploy a Docker container via dockpilot.\n\nservice_name: required. The container name (e.g. 'mongodb', 'redis', 'my-api').\nbody: required. JSON string for the request body.\n  - For built-in services (mongodb/redis/postgres/nginx): use '{}'\n  - For custom services: '{\"image\":\"repo/name:tag\",\"ports\":[\"8080:80\"],\"volumes\":[\"volname:/mountpath\"],\"env\":[\"KEY=value\"]}'\n  Only include the fields you need; all are optional except image for non-built-ins.",
+        "name": "deploy_stack",
+        "description": "Deploy one or more services as a stack via stackpilot. Generate a YAML stack definition and POST it. Stackpilot resolves dependency order and calls dockpilot for each service in the correct sequence.\n\nThe response includes the deployed stack name and the state and ports of each service.",
         "method": "POST",
-        "url": "={{ 'http://dockpilot:8088/v1/services/' + $fromAI('service_name', 'Service name to deploy, e.g. mongodb, redis, my-api') + '/deploy' }}",
+        "url": "http://stackpilot:8089/v1/stacks/deploy",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ $fromAI('body', 'JSON body. Use {} for built-ins (mongodb/redis/postgres/nginx). For custom services: {\"image\":\"repo/img:tag\",\"ports\":[\"8080:80\"],\"volumes\":[\"vol:/path\"],\"env\":[\"K=V\"]}') }}",
+        "jsonBody": "={{ {yaml: $fromAI('stack_yaml', 'Complete stack YAML definition. Example:\\nname: dev\\nservices:\\n  redis:\\n    image: redis:latest\\n    ports:\\n      - 6379:6379')} }}",
         "options": {}
       }
     },
@@ -115,9 +115,9 @@
       "position": [600, 780],
       "parameters": {
         "name": "service_status",
-        "description": "Get the runtime status of a deployed container: whether it is running, its image, port bindings, and current state. Call this after every deploy to confirm success.",
+        "description": "Get the runtime status of a single deployed container. Use service_name in the format \"{stack_name}-{service_key}\", e.g. \"dev-redis\" for the redis service in the dev stack.",
         "method": "GET",
-        "url": "={{ 'http://dockpilot:8088/v1/services/' + $fromAI('service_name', 'The service name to check status for, e.g. mongodb') + '/status' }}",
+        "url": "={{ 'http://dockpilot:8088/v1/services/' + $fromAI('service_name', 'Service name in format {stack}-{service}, e.g. dev-redis') + '/status' }}",
         "options": {}
       }
     },
@@ -129,9 +129,9 @@
       "position": [600, 920],
       "parameters": {
         "name": "service_logs",
-        "description": "Fetch recent stdout/stderr logs from a running container. Use for troubleshooting startup failures or errors.",
+        "description": "Fetch recent stdout/stderr logs from a running container. Use service_name in the format \"{stack_name}-{service_key}\", e.g. \"dev-redis\". Use for troubleshooting startup failures or errors.",
         "method": "GET",
-        "url": "={{ 'http://dockpilot:8088/v1/services/' + $fromAI('service_name', 'The service name to fetch logs from') + '/logs?tail=' + $fromAI('tail', 'Number of log lines to return, default 50') }}",
+        "url": "={{ 'http://dockpilot:8088/v1/services/' + $fromAI('service_name', 'Service name in format {stack}-{service}, e.g. dev-redis') + '/logs?tail=' + $fromAI('tail', 'Number of log lines to return, default 50') }}",
         "options": {}
       }
     },
@@ -143,9 +143,26 @@
       "position": [600, 1060],
       "parameters": {
         "name": "remove_service",
-        "description": "Stop and remove a deployed container. Optionally delete its named volumes (WARNING: permanently destroys data). Only delete volumes when the user explicitly confirms.",
+        "description": "Stop and remove a single deployed container. Use service_name in the format \"{stack_name}-{service_key}\", e.g. \"dev-redis\". Optionally delete its named volumes (WARNING: permanently destroys data — only when user explicitly confirms).",
         "method": "DELETE",
-        "url": "={{ 'http://dockpilot:8088/v1/services/' + $fromAI('service_name', 'The service name to remove, e.g. mongodb') + '?volumes=' + ($fromAI('volumes', 'Comma-separated named volume names to also delete, e.g. dockpilot-mongodb-data — or empty string to preserve data') || '') }}",
+        "url": "={{ 'http://dockpilot:8088/v1/services/' + $fromAI('service_name', 'Service name in format {stack}-{service}, e.g. dev-redis') + '?volumes=' + ($fromAI('volumes', 'Comma-separated named volume names to also delete, or empty string to keep data') || '') }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0000-0000-000000000012",
+      "name": "remove_stack",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [600, 1200],
+      "parameters": {
+        "name": "remove_stack",
+        "description": "Remove all services in a stack via stackpilot. Tears down in reverse dependency order (apps before databases). Provide the same YAML used to deploy the stack.\n\nSet volumes to true only when the user explicitly confirms they want to delete persistent data.",
+        "method": "POST",
+        "url": "http://stackpilot:8089/v1/stacks/remove",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {yaml: $fromAI('stack_yaml', 'The stack YAML to remove — same format as deploy_stack'), volumes: $fromAI('volumes', 'true to also delete named volumes (permanent data loss), false to preserve data')} }}",
         "options": {}
       }
     },
@@ -154,10 +171,10 @@
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [560, -240],
+      "position": [560, -280],
       "parameters": {
-        "content": "## Active model: Ollama (local, free, no API key)\n\nOllama runs inside Docker — no quota, no billing.\n\n**Setup (one time):**\n```\n# Build dockpilot image (from dockpilot repo root)\ndocker build -t dockpilot:latest /path/to/dockpilot\n\n# Start the platform\ncd examples && docker compose -f platform-compose.yml up -d\n\n# Pull the model (~2 GB)\ndocker exec platform-ollama-1 ollama pull llama3.2:3b\n```\n\n**Credential (no API key needed):**\nCredentials → Add → Ollama\nBase URL: `http://ollama:11434`\n\n---\n\n## Swap to a cloud model\n1. Delete the wire from **Ollama (Active)** → DevOps Assistant\n2. Connect **Gemini (Swap in)** → DevOps Assistant\n3. Add Gemini credentials (Google AI Studio API key)\n\n---\n\n## dockpilot URL\nAll tools point to `dockpilot:8088` (container name on shared network).",
-        "height": 380,
+        "content": "## Architecture: n8n → stackpilot → dockpilot\n\n## Active model: Ollama (local, free, no API key)\n\n**Setup (one time):**\n```\n# Build images (from each repo root)\ndocker build -t dockpilot:latest ./dockpilot\ndocker build -t stackpilot:latest ./stackpilot\n\n# Start the platform\ncd stackpilot/examples\ndocker compose -f platform-compose.yml up -d\n\n# Pull the LLM model (~2 GB)\ndocker exec examples-ollama-1 ollama pull llama3.2:3b\n```\n\n**Credential (no API key needed):**\nCredentials → Add → Ollama\nBase URL: `http://ollama:11434`\n\n---\n\n## Swap to a cloud model\n1. Delete the wire from **Ollama (Active)** → DevOps Assistant\n2. Connect **Gemini (Swap in)** → DevOps Assistant\n3. Add Gemini credentials (Google AI Studio API key)\n\n---\n\n## Service URLs\n- stackpilot: `stackpilot:8089`\n- dockpilot:  `dockpilot:8088`",
+        "height": 420,
         "width": 380,
         "color": 4
       }
@@ -184,7 +201,7 @@
         [{"node": "DevOps Assistant", "type": "ai_tool", "index": 0}]
       ]
     },
-    "deploy_service": {
+    "deploy_stack": {
       "ai_tool": [
         [{"node": "DevOps Assistant", "type": "ai_tool", "index": 0}]
       ]
@@ -200,6 +217,11 @@
       ]
     },
     "remove_service": {
+      "ai_tool": [
+        [{"node": "DevOps Assistant", "type": "ai_tool", "index": 0}]
+      ]
+    },
+    "remove_stack": {
       "ai_tool": [
         [{"node": "DevOps Assistant", "type": "ai_tool", "index": 0}]
       ]
