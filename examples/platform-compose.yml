@@ -1,0 +1,35 @@
+services:
+  dockpilot:
+    image: dockpilot:latest
+    ports:
+      - "8088:8088"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - platform-ollama-data:/root/.ollama
+    restart: unless-stopped
+
+  n8n:
+    image: n8nio/n8n:latest
+    ports:
+      - "5678:5678"
+    volumes:
+      - platform-n8n-data:/home/node/.n8n
+    environment:
+      N8N_SECURE_COOKIE: "false"
+      WEBHOOK_URL: "http://localhost:5678"
+      N8N_EDITOR_BASE_URL: "http://localhost:5678"
+      GENERIC_TIMEZONE: "UTC"
+    depends_on:
+      - dockpilot
+    restart: unless-stopped
+
+volumes:
+  platform-ollama-data:
+  platform-n8n-data:
